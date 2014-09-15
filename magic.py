@@ -47,7 +47,12 @@ def processManifest(args):
 
 
 def getVariants(args):
-    return os.walk(args.baseDir).next()[1]
+    variants = os.walk(args.baseDir).next()[1]
+    if len(variants) == 0:
+        raise Usage("No subdirectory-based variants found in %s." %
+                    (blue(args.baseDir, bold=True),),
+                    (args.baseDir,))
+    return variants
 
 
 def main(argv=None):
