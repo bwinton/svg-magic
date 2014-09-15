@@ -69,9 +69,11 @@ def main(argv=None):
             help='The directory to find the images and the manifests in.')
         args = parser.parse_args(argv[1:])
         spritesheets = processManifest(args)
+        print "Spritesheets: " + str(spritesheets)
         variants = getVariants(args)
-        print spritesheets
-        print variants
+        for variant in variants:
+            print "Making " + variant
+            # Get images in spritesheet for variant…
     except Usage, err:
         print >>sys.stderr
         print >>sys.stderr, red("Error:", bold=True)
