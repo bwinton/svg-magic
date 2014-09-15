@@ -1,0 +1,2 @@
+Mag.svg, Toolbar
+Doc.svg, Toolbar
