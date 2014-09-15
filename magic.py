@@ -46,6 +46,10 @@ def processManifest(args):
     return spritesheets
 
 
+def getVariants(args):
+    return os.walk(args.baseDir).next()[1]
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -60,7 +64,9 @@ def main(argv=None):
             help='The directory to find the images and the manifests in.')
         args = parser.parse_args(argv[1:])
         spritesheets = processManifest(args)
+        variants = getVariants(args)
         print spritesheets
+        print variants
     except Usage, err:
         print >>sys.stderr
         print >>sys.stderr, red("Error:", bold=True)
