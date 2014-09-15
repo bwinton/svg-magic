@@ -21,7 +21,9 @@ def processManifest(args):
     # print args
     manifestPath = os.path.join(args.baseDir, 'sprites.mf')
     if not os.path.exists(manifestPath):
-        raise Usage("Manifest not found at " + manifestPath)
+        raise Usage("Manifest not found at %s." %
+                    (red(manifestPath, bold=True)),
+                    (manifestPath,))
     lineCount = len(open(manifestPath).readlines())
 
     manifest = csv.DictReader(open(manifestPath), skipinitialspace=True)
