@@ -7,9 +7,21 @@ from clint.textui.colored import red, green, blue
 from time import sleep
 from clint.textui import progress
 import csv
+import io
 import os
 import sys
 from lxml import etree
+
+
+SPRITESHEET_SVG = io.BytesIO("""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+                     "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg version="1.1"
+     xmlns="http://www.w3.org/2000/svg"
+     x="0"
+     y="0">
+</svg>""")
 
 
 class Usage(Exception):
@@ -116,11 +128,48 @@ class Spritesheet(object):
         new.uses = uses
         return new
 
+    def write(self, output):
+        tree = etree.parse(SPRITESHEET_SVG)
+        root = tree.getroot()
+        root.attrib['width'] = '16'
+        root.attrib['height'] = '16'
+        root.attrib['viewbox'] = '0 0 16 16'
+
+        for style in self.styles:
+            style = etree.Element('style')
+            style.tail = '\n'
+            root.append(style)
+
+        for use in self.uses:
+            defs = etree.Element('defs')
+            defs.tail = '\n'
+            root.append(defs)
+
+        for image in self.images:
+            g = etree.Element('image')
+            g.text = str(image)
+            g.tail = '\n'
+            root.append(g)
+
+        data = etree.tostring(tree,
+                              xml_declaration=True,
+                              encoding='utf-8')
+        print data
+
+        if not os.path.exists(output):
+            os.makedirs(output)
+        svgPath = os.path.join(output, self.name + '.svg')
+        print 'Writing:', svgPath
+        svg = open(svgPath, 'w')
+        svg.write(data)
+        svg.close()
+
 
 class Variant(object):
     def __init__(self, variantDir, args):
         self.variantDir = variantDir
         self.baseDir = args.baseDir
+        self.output = os.path.join(args.output, self.variantDir)
 
     def __str__(self):
         return 'Variant<' + self.variantDir + '>'
@@ -147,6 +196,7 @@ class Variant(object):
         for spritesheet in spritesheets:
             sheet = spritesheet.getVariant(self)
             print '  ->', sheet, sheet.images, sheet.styles, sheet.uses
+            sheet.write(self.output)
 
 
 def getVariants(args):
