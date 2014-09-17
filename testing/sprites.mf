@@ -1,2 +1,2 @@
-Mag.svg, Toolbar
-Doc.svg, Toolbar
+icon-back.svg, Toolbar
+icon-forward.svg, Toolbar
