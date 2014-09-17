@@ -42,8 +42,8 @@ def processManifest(args):
                          blue(manifestPath, bold=True),
                          blue('line ' + str(manifest.line_num), bold=True)),
                         (imagePath, manifestPath, manifest.line_num))
-        spritesheets.setdefault(sheet, []).append(image)
-    return spritesheets
+        spritesheets.setdefault(sheet, Spritesheet(sheet)).addImage(image)
+    return spritesheets.values()
 
 
 class Image(object):
@@ -59,16 +59,62 @@ class Image(object):
         return self.__str__()
 
     def parseTree(self):
-        self.sheets = []
-        pi = self.tree.getroot().getprevious()
-        if (isinstance(pi, etree._ProcessingInstruction) and
-                pi.target == 'xml-stylesheet' and
-                pi.attrib['type'] == 'text/css'):
-            self.sheets.append(pi.attrib['href'])
+        # Get the stylesheets…
+        self.styles = []
+        pi = self.tree.getroot()
+        while pi is not None:
+            if (isinstance(pi, etree._ProcessingInstruction) and
+                    pi.target == 'xml-stylesheet' and
+                    pi.attrib['type'] == 'text/css'):
+                self.styles.append(pi.attrib['href'])
+            pi = pi.getprevious()
+
+        # Get (and remove) the use statements.
         self.uses = self.tree.findall('{http://www.w3.org/2000/svg}use')
+        for use in self.uses:
+            use.getparent().remove(use)
         self.uses = [use.attrib['{http://www.w3.org/1999/xlink}href']
                      for use in self.uses]
-        # import pdb;pdb.set_trace()
+
+        # Get the rest of the children.
+        self.children = self.tree.getroot().getchildren()
+
+        # And the width/height, and maybe the viewbox.
+        attrib = self.tree.getroot().attrib
+        self.width = attrib['width']
+        self.height = attrib['height']
+
+
+class Spritesheet(object):
+    def __init__(self, name, images=None):
+        self.name = name
+        if images is None:
+            images = []
+        self.images = images
+
+    def __str__(self):
+        return 'Spritesheet<' + self.name + '>'
+
+    def __repr__(self):
+        return self.__str__()
+
+    def addImage(self, image):
+        self.images.append(image)
+
+    def getVariant(self, variant):
+        new = Spritesheet(self.name, self.images[:])
+        new.images = [Image(variant.getFile(image)) for image in new.images]
+        styles = set()
+        uses = set()
+        for image in new.images:
+            styles.update(image.styles)
+            uses.update(image.uses)
+            print image.name, image.width, image.height
+        styles = [variant.getFile(sheet) for sheet in sorted(styles)]
+        uses = [variant.getDefsFile(use) for use in sorted(uses)]
+        new.styles = styles
+        new.uses = uses
+        return new
 
 
 class Variant(object):
@@ -88,23 +134,19 @@ class Variant(object):
             return filePath
         return os.path.join(self.baseDir, filename)
 
+    def getDefsFile(self, filename):
+        filePath, xmlId = filename.split('#')
+        filePath = self.getFile(filePath)
+        print filePath, xmlId
+        return (filePath, xmlId)
+
     def make(self, spritesheets):
         print
         print 'Making', self
         # Get images in spritesheet for variant…
         for spritesheet in spritesheets:
-            images = spritesheets[spritesheet]
-            print '  ->', spritesheet, images
-            images = [Image(self.getFile(image)) for image in images]
-            sheets = set()
-            uses = set()
-            for image in images:
-                sheets.update(image.sheets)
-                uses.update(image.uses)
-                print image.name, image.sheets, image.uses
-            sheets = [self.getFile(sheet) for sheet in sorted(sheets)]
-            uses = sorted(uses)
-            print sheets, uses
+            sheet = spritesheet.getVariant(self)
+            print '  ->', sheet, sheet.images, sheet.styles, sheet.uses
 
 
 def getVariants(args):
