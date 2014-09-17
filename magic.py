@@ -9,6 +9,7 @@ from clint.textui import progress
 import csv
 import os
 import sys
+from lxml import etree
 
 
 class Usage(Exception):
@@ -45,8 +46,70 @@ def processManifest(args):
     return spritesheets
 
 
+class Image(object):
+    def __init__(self, image):
+        self.name = image
+        self.tree = etree.parse(self.name)
+        self.parseTree()
+
+    def __str__(self):
+        return 'Image<' + self.name + '>'
+
+    def __repr__(self):
+        return self.__str__()
+
+    def parseTree(self):
+        self.sheets = []
+        pi = self.tree.getroot().getprevious()
+        if (isinstance(pi, etree._ProcessingInstruction) and
+                pi.target == 'xml-stylesheet' and
+                pi.attrib['type'] == 'text/css'):
+            self.sheets.append(pi.attrib['href'])
+        self.uses = self.tree.findall('{http://www.w3.org/2000/svg}use')
+        self.uses = [use.attrib['{http://www.w3.org/1999/xlink}href']
+                     for use in self.uses]
+        # import pdb;pdb.set_trace()
+
+
+class Variant(object):
+    def __init__(self, variantDir, args):
+        self.variantDir = variantDir
+        self.baseDir = args.baseDir
+
+    def __str__(self):
+        return 'Variant<' + self.variantDir + '>'
+
+    def __repr__(self):
+        return self.__str__()
+
+    def getFile(self, filename):
+        filePath = os.path.join(self.baseDir, self.variantDir, filename)
+        if os.path.exists(filePath):
+            return filePath
+        return os.path.join(self.baseDir, filename)
+
+    def make(self, spritesheets):
+        print
+        print 'Making', self
+        # Get images in spritesheet for variant…
+        for spritesheet in spritesheets:
+            images = spritesheets[spritesheet]
+            print '  ->', spritesheet, images
+            images = [Image(self.getFile(image)) for image in images]
+            sheets = set()
+            uses = set()
+            for image in images:
+                sheets.update(image.sheets)
+                uses.update(image.uses)
+                print image.name, image.sheets, image.uses
+            sheets = [self.getFile(sheet) for sheet in sorted(sheets)]
+            uses = sorted(uses)
+            print sheets, uses
+
+
 def getVariants(args):
     variants = os.walk(args.baseDir).next()[1]
+    variants = [Variant(variant, args) for variant in variants]
     if len(variants) == 0:
         raise Usage('No subdirectory-based variants found in %s.' %
                     (blue(args.baseDir, bold=True),),
@@ -75,8 +138,7 @@ def main(argv=None):
         print 'Spritesheets: ' + str(spritesheets)
         variants = getVariants(args)
         for variant in variants:
-            print 'Making ' + variant
-            # Get images in spritesheet for variant…
+            variant.make(spritesheets)
     except Usage, err:
         print >>sys.stderr
         print >>sys.stderr, red('Error:', bold=True)
