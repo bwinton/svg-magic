@@ -13,7 +13,7 @@ import sys
 from lxml import etree
 
 
-SPRITESHEET_SVG = io.BytesIO("""<?xml version="1.0" encoding="utf-8"?>
+SPRITESHEET_SVG = io.BytesIO('''<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
                      "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
@@ -21,7 +21,7 @@ SPRITESHEET_SVG = io.BytesIO("""<?xml version="1.0" encoding="utf-8"?>
      xmlns="http://www.w3.org/2000/svg"
      x="0"
      y="0">
-</svg>""")
+</svg>''')
 
 
 class Usage(Exception):
