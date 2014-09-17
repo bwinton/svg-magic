@@ -67,6 +67,10 @@ def main(argv=None):
             'baseDir',
             action="store",
             help='The directory to find the images and the manifests in.')
+        parser.add_argument(
+            '-o', '--output',
+            default='output',
+            help='The directory to store the output in.')
         args = parser.parse_args(argv[1:])
         spritesheets = processManifest(args)
         print "Spritesheets: " + str(spritesheets)
