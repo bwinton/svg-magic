@@ -113,6 +113,12 @@ class Spritesheet(object):
     def addImage(self, image):
         self.images.append(image)
 
+    def loadStyle(self, style):
+        return etree.CDATA('\n' + style + '\nStyle info goes here\n')
+
+    def loadDef(self, use):
+        return [etree.Element('abc'), etree.Element('def')]
+
     def getVariant(self, variant):
         new = Spritesheet(self.name, self.images[:])
         new.images = [Image(variant.getFile(image)) for image in new.images]
@@ -122,10 +128,15 @@ class Spritesheet(object):
             styles.update(image.styles)
             uses.update(image.uses)
             print image.name, image.width, image.height
+
         styles = [variant.getFile(sheet) for sheet in sorted(styles)]
-        uses = [variant.getDefsFile(use) for use in sorted(uses)]
+        styles = [self.loadStyle(style) for style in styles]
         new.styles = styles
+
+        uses = [variant.getDefsFile(use) for use in sorted(uses)]
+        uses = [self.loadDef(use) for use in uses]
         new.uses = uses
+
         return new
 
     def write(self, output):
@@ -136,12 +147,14 @@ class Spritesheet(object):
         root.attrib['viewbox'] = '0 0 16 16'
 
         for style in self.styles:
-            style = etree.Element('style')
-            style.tail = '\n'
-            root.append(style)
+            styleElem = etree.Element('style')
+            styleElem.text = style
+            styleElem.tail = '\n'
+            root.append(styleElem)
 
         for use in self.uses:
             defs = etree.Element('defs')
+            defs.extend(use)
             defs.tail = '\n'
             root.append(defs)
 
