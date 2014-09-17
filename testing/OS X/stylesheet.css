@@ -1,0 +1,27 @@
+.icon-toolbar {
+  fill: ButtonText;
+  fill-opacity: .9;
+  filter: url('#filter-effects-toolbar');
+ }
+
+.icon-toolbar.notification {
+  fill: #0080ff;
+  fill-opacity: 1;
+ }
+
+.icon-placeholder-background {
+  fill: url('#gradient-radial-placeholder');
+}
+
+.icon-placeholder-border {
+  fill: none;
+  stroke: #002132;
+  stoke-width: 1;
+  stroke-opacity: .2;
+}
+
+@media (min-resolution: 2dppx) {
+  .icon-toolbar {
+    fill: red;
+  }
+}
