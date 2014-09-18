@@ -59,13 +59,14 @@ def processManifest(args):
 
 
 class Image(object):
-    def __init__(self, image):
-        self.name = image
-        self.tree = etree.parse(self.name)
+    def __init__(self, name, path):
+        self.name = name.replace('.svg', '')
+        self.path = path
+        self.tree = etree.parse(self.path)
         self.parseTree()
 
     def __str__(self):
-        return 'Image<' + self.name + '>'
+        return 'Image<' + self.path + '>'
 
     def __repr__(self):
         return self.__str__()
@@ -125,7 +126,8 @@ class Spritesheet(object):
 
     def getVariant(self, variant):
         new = Spritesheet(self.name, self.images[:])
-        new.images = [Image(variant.getFile(image)) for image in new.images]
+        new.images = [Image(image, variant.getFile(image))
+                      for image in new.images]
 
         styles = set()
         uses = set()
@@ -188,6 +190,29 @@ class Spritesheet(object):
         svg = open(svgPath, 'w')
         svg.write(data)
         svg.close()
+
+        # Write out the CSS!
+        cssPath = os.path.join(output, self.name + 'Sprites.inc')
+        print 'Writing:', cssPath
+        css = open(cssPath, 'w')
+        data = ''
+        for image in self.images:
+            data += (('%%define %s-image ' +
+                     'list-style-image: url("chrome://browser/skin/%s.svg");' +
+                     '-moz-image-region: rect(0px, %dpx, %dpx, %dpx);\n') %
+                     (image.name, self.name, image.offset+image.width,
+                      image.height, image.offset))
+            data += (('%%define %s-hover ' +
+                     '-moz-image-region: rect(%dpx, %dpx, %dpx, %dpx);\n') %
+                     (image.name, image.height, image.offset+image.width,
+                      image.height*2, image.offset))
+            data += (('%%define %s-active ' +
+                     '-moz-image-region: rect(%dpx, %dpx, %dpx, %dpx);\n') %
+                     (image.name, image.height*2, image.offset+image.width,
+                      image.height*3, image.offset))
+            data += '\n'
+        css.write(data)
+        css.close()
 
 
 class Variant(object):
