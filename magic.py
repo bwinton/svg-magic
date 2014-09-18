@@ -114,14 +114,19 @@ class Spritesheet(object):
         self.images.append(image)
 
     def loadStyle(self, style):
-        return etree.CDATA('\n' + style + '\nStyle info goes here\n')
+        data = open(style).read()
+        return etree.CDATA('\n' + data + '\n')
 
     def loadDef(self, use):
-        return [etree.Element('abc'), etree.Element('def')]
+        filename, xmlId = use
+        tree = etree.parse(filename)
+        defs = tree.find('*[@id="' + xmlId + '"]')
+        return defs.getchildren()
 
     def getVariant(self, variant):
         new = Spritesheet(self.name, self.images[:])
         new.images = [Image(variant.getFile(image)) for image in new.images]
+
         styles = set()
         uses = set()
         for image in new.images:
@@ -130,12 +135,10 @@ class Spritesheet(object):
             print image.name, image.width, image.height
 
         styles = [variant.getFile(sheet) for sheet in sorted(styles)]
-        styles = [self.loadStyle(style) for style in styles]
-        new.styles = styles
+        new.styles = [self.loadStyle(style) for style in styles]
 
         uses = [variant.getDefsFile(use) for use in sorted(uses)]
-        uses = [self.loadDef(use) for use in uses]
-        new.uses = uses
+        new.uses = [self.loadDef(use) for use in uses]
 
         return new
 
@@ -145,29 +148,29 @@ class Spritesheet(object):
         root.attrib['width'] = '16'
         root.attrib['height'] = '16'
         root.attrib['viewbox'] = '0 0 16 16'
+        root.text = '\n  '
 
         for style in self.styles:
             styleElem = etree.Element('style')
             styleElem.text = style
-            styleElem.tail = '\n'
+            styleElem.tail = '\n  '
             root.append(styleElem)
 
+        defs = etree.Element('defs')
+        defs.text = '\n    '
         for use in self.uses:
-            defs = etree.Element('defs')
             defs.extend(use)
-            defs.tail = '\n'
-            root.append(defs)
+        defs.tail = '\n  '
+        root.append(defs)
 
         for image in self.images:
-            g = etree.Element('image')
-            g.text = str(image)
-            g.tail = '\n'
-            root.append(g)
+            root.extend(image.children)
+            image.children[-1].tail = '\n  '
+        image.children[-1].tail = '\n'
 
         data = etree.tostring(tree,
                               xml_declaration=True,
                               encoding='utf-8')
-        print data
 
         if not os.path.exists(output):
             os.makedirs(output)
