@@ -93,8 +93,8 @@ class Image(object):
 
         # And the width/height, and maybe the viewbox.
         attrib = self.tree.getroot().attrib
-        self.width = attrib['width']
-        self.height = attrib['height']
+        self.width = int(attrib['width'])
+        self.height = int(attrib['height'])
 
 
 class Spritesheet(object):
@@ -145,9 +145,6 @@ class Spritesheet(object):
     def write(self, output):
         tree = etree.parse(SPRITESHEET_SVG)
         root = tree.getroot()
-        root.attrib['width'] = '16'
-        root.attrib['height'] = '16'
-        root.attrib['viewbox'] = '0 0 16 16'
         root.text = '\n  '
 
         for style in self.styles:
@@ -163,10 +160,22 @@ class Spritesheet(object):
         defs.tail = '\n  '
         root.append(defs)
 
+        height = 0
+        width = 0
         for image in self.images:
+            for child in image.children:
+                child.attrib['style'] = 'transform:translateX(%dpx)' % (width,)
             root.extend(image.children)
             image.children[-1].tail = '\n  '
+            image.offset = width
+            width += image.width
+            if image.height > height:
+                height = image.height
         image.children[-1].tail = '\n'
+
+        root.attrib['height'] = '%d' % (height,)
+        root.attrib['width'] = '%d' % (width,)
+        root.attrib['viewbox'] = '0 0 %d %d' % (height, width)
 
         data = etree.tostring(tree,
                               xml_declaration=True,
