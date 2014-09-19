@@ -61,6 +61,12 @@ for the icons.
 that points at a defs file which will contain the platform-specific
 definitions (gradients/filters/etc…) for the icons.
 
+  Each `<g>` element may contain a `class` attribute.  If it does, the
+tool will output one copy for each class in the attribute (as well as)
+one copy with no classes.  This will let us handle hover/active states
+as well as more complicated situations (like the various states of the
+camera icon in the urlbar).
+
 
 `\OS X\defs.svg`
 : This per-platform file will contain the platform-specific definitions
@@ -105,9 +111,14 @@ The output directory, which will be created if it doesn’t exist, will have the
 : It will be of the form:
 ```
 %define icon1-image list-style-image: url("chrome://browser/skin/spritesheet.svg");-moz-image-region: rect(0px, 16px, 16px, 0px);
-%define icon1-hover -moz-image-region: rect(16px, 16px, 32px, 0px);
-%define icon1-active -moz-image-region: rect(32px, 16px, 48px, 0px);
 ```
+
+  If there are other classes generated for the icon, they will have the form:
+```
+%define icon1-class1 -moz-image-region: rect(16px, 16px, 32px, 0px);
+%define icon1-class2 -moz-image-region: rect(32px, 16px, 48px, 0px);
+```
+
 
 
 ### Architecture
