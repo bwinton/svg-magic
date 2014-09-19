@@ -1,0 +1,35 @@
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <defs id="defs">
+    <linearGradient id="gradient-radial-placeholder"
+                    x1="0%" y1="0%"
+                    x2="0%" y2="100%"
+                    spreadMethod="pad">
+      <stop offset="0%"   stop-color="#00a7fd" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ff35ff" stop-opacity="1"/>
+    </linearGradient>
+
+
+    <filter id="filter-effects-toolbar">
+      <feOffset in="SourceGraphic" dx="0" dy="1" result="fe-toolbar-offset" />
+      <feFlood flood-color="black" flood-opacity=".7" result="fe-toolbar-flood" />
+      <feComposite operator="out" in="fe-toolbar-flood" in2="fe-toolbar-offset" />
+      <feGaussianBlur stdDeviation=".25" result="fe-toolbar-blur" />
+      <feComposite operator="atop" in="fe-toolbar-blur" in2="SourceGraphic" result="fe-toolbar-composite" />
+
+      <feColorMatrix in="fe-toolbar-offset" type="matrix"
+        values="1  1  1  0 1
+                1 -1  1  0 1
+                1  1 -1  0 1
+                0  0  0 .5 0"
+        result="fe-toolbar-colormatrix" />
+
+      <feMerge>
+        <feMergeNode in="fe-toolbar-colormatrix" />
+        <feMergeNode in="fe-toolbar-composite" />
+      </feMerge>
+    </filter>
+
+  </defs>
+
+</svg>
