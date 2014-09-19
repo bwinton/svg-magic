@@ -6,6 +6,7 @@ from clint.textui.colored import red, green, blue
 
 from time import sleep
 from clint.textui import progress
+import copy
 import csv
 import io
 import os
@@ -62,6 +63,7 @@ class Image(object):
     def __init__(self, name, path):
         self.name = name.replace('.svg', '')
         self.path = path
+        self.hasClass = False
         self.tree = etree.parse(self.path)
         self.parseTree()
 
@@ -89,13 +91,34 @@ class Image(object):
         self.uses = [use.attrib['{http://www.w3.org/1999/xlink}href']
                      for use in self.uses]
 
-        # Get the rest of the children.
-        self.children = self.tree.getroot().getchildren()
+        # Get the one remaining child;
+        self.child = self.tree.getroot().getchildren()
+        if len(self.child) != 1:
+            raise Usage('More than one child in %s.' %
+                        (red(self.path, bold=True),),
+                        (self.path,))
+        self.child = self.child[0]
 
         # And the width/height, and maybe the viewbox.
         attrib = self.tree.getroot().attrib
         self.width = int(attrib['width'])
         self.height = int(attrib['height'])
+
+    def getAlternates(self):
+        alternates = [self]
+        if 'class' in self.child.attrib:
+            classes = self.child.attrib['class'].split()
+            del self.child.attrib['class']
+            print "Classes", classes
+            for classname in classes:
+                alternate = copy.deepcopy(self)
+                alternate.child.attrib['class'] = classname
+                alternate.child.attrib['id'] += '-' + classname
+                alternate.name += '-' + classname
+                alternate.hasClass = True
+                alternates.append(alternate)
+
+        return alternates
 
 
 class Spritesheet(object):
@@ -125,9 +148,10 @@ class Spritesheet(object):
         return defs.getchildren()
 
     def getVariant(self, variant):
-        new = Spritesheet(self.name, self.images[:])
-        new.images = [Image(image, variant.getFile(image))
-                      for image in new.images]
+        new = Spritesheet(self.name)
+        for image in self.images:
+            newImage = Image(image, variant.getFile(image))
+            new.images.extend(newImage.getAlternates())
 
         styles = set()
         uses = set()
@@ -165,15 +189,15 @@ class Spritesheet(object):
         height = 0
         width = 0
         for image in self.images:
-            for child in image.children:
-                child.attrib['style'] = 'transform:translateX(%dpx)' % (width,)
-            root.extend(image.children)
-            image.children[-1].tail = '\n  '
+            image.child.attrib['style'] = 'transform:translate(%dpx)' % (
+                width,)
+            root.append(image.child)
+            image.child.tail = '\n  '
             image.offset = width
             width += image.width
             if image.height > height:
                 height = image.height
-        image.children[-1].tail = '\n'
+        image.child.tail = '\n'
 
         root.attrib['height'] = '%d' % (height,)
         root.attrib['width'] = '%d' % (width,)
@@ -197,19 +221,13 @@ class Spritesheet(object):
         css = open(cssPath, 'w')
         data = ''
         for image in self.images:
-            data += (('%%define %s-image ' +
-                     'list-style-image: url("chrome://browser/skin/%s.svg");' +
-                     '-moz-image-region: rect(0px, %dpx, %dpx, %dpx);\n') %
-                     (image.name, self.name, image.offset+image.width,
-                      image.height, image.offset))
-            data += (('%%define %s-hover ' +
-                     '-moz-image-region: rect(%dpx, %dpx, %dpx, %dpx);\n') %
-                     (image.name, image.height, image.offset+image.width,
-                      image.height*2, image.offset))
-            data += (('%%define %s-active ' +
-                     '-moz-image-region: rect(%dpx, %dpx, %dpx, %dpx);\n') %
-                     (image.name, image.height*2, image.offset+image.width,
-                      image.height*3, image.offset))
+            data += '%%define %s-image ' % (image.name,)
+            if not image.hasClass:
+                data += 'list-style-image: url('
+                data += '"chrome://browser/skin/%s.svg");' % (self.name,)
+            data += '-moz-image-region: rect(0px, '
+            data += '%dpx, %dpx, %dpx);\n' % (image.offset+image.width,
+                                              image.height, image.offset)
             data += '\n'
         css.write(data)
         css.close()
