@@ -78,16 +78,6 @@ class Image(object):
         return self.__str__()
 
     def parseTree(self):
-        # Get the stylesheets…
-        self.styles = []
-        pi = self.tree.getroot()
-        while pi is not None:
-            if (isinstance(pi, etree._ProcessingInstruction) and
-                    pi.target == 'xml-stylesheet' and
-                    pi.attrib['type'] == 'text/css'):
-                self.styles.append(pi.attrib['href'])
-            pi = pi.getprevious()
-
         # Get (and remove) the use statements.
         self.uses = self.tree.findall('{http://www.w3.org/2000/svg}use')
         for use in self.uses:
@@ -153,18 +143,35 @@ class Spritesheet(object):
 
         return alternates
 
+    def getStyles(self, uses):
+        styles = []
+        styleNames = set()
+        for use in uses:
+            tree = etree.parse(use)
+            pi = tree.getroot()
+            while pi is not None:
+                if (isinstance(pi, etree._ProcessingInstruction) and
+                        pi.target == 'xml-stylesheet' and
+                        pi.attrib['type'] == 'text/css' and
+                        pi.attrib['href'] not in styleNames):
+                    styles.append(pi.attrib['href'])
+                    styleNames.add(pi.attrib['href'])
+                pi = pi.getprevious()
+        return styles
+
     def getVariants(self, variant):
         new = Spritesheet(self.name)
         styles = set()
         uses = set()
         for image in self.images:
             newImage = Image(image, variant.getFile(image))
-            styles.update(newImage.styles)
             uses.update(newImage.uses)
-            print newImage.name, newImage.width, newImage.height
+            # print newImage.name, newImage.width, newImage.height
 
-        styles = [variant.getFile(sheet) for sheet in sorted(styles)]
-        new.styles = [self.loadStyle(style) for style in styles]
+        # Get the stylesheets…
+        styles = self.getStyles(variant.getFile(use) for use in uses)
+        new.styles = [self.loadStyle(variant.getDefsFile(style))
+                      for style in styles]
 
         new.usemap = {use: self.loadDef(variant.getDefsFile(use))
                       for use in uses}
@@ -174,6 +181,8 @@ class Spritesheet(object):
             newImage = Image(image, variant.getFile(image))
             new.images.extend(new.getAlternates(newImage))
         variants = [new]
+
+        # use = [element for element in use if element.tag not in EXTRA_TAGS]
 
         return variants
 
@@ -190,7 +199,8 @@ class Spritesheet(object):
 
         for use in self.uses:
             use = [element for element in use if element.tag not in EXTRA_TAGS]
-            use[-1].tail = '\n\n  '
+            if len(use):
+                use[-1].tail = '\n\n  '
             root.extend(use)
 
         height = 0

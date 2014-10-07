@@ -12,7 +12,6 @@
       <stop offset="100%" stop-color="#ff35ff" stop-opacity="1"/>
     </linearGradient>
 
-
     <filter id="filter-effects-toolbar">
       <feOffset in="SourceGraphic" dx="0" dy="1" result="fe-toolbar-offset" />
       <feFlood flood-color="black" flood-opacity=".7" result="fe-toolbar-flood" />
@@ -32,7 +31,6 @@
         <feMergeNode in="fe-toolbar-composite" />
       </feMerge>
     </filter>
-
   </defs>
 
 </svg>
