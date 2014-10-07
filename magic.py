@@ -24,6 +24,10 @@ SPRITESHEET_SVG = io.BytesIO('''<?xml version="1.0" encoding="utf-8"?>
      y="0">
 </svg>''')
 
+EXTRA_CLASSES = '{http://www.w3.org/2000/svg}extra-classes'
+EXTRA_THEMES = '{http://www.w3.org/2000/svg}extra-themes'
+EXTRA_TAGS = [EXTRA_CLASSES, EXTRA_THEMES]
+
 
 class Usage(Exception):
     def __init__(self, msg, data):
@@ -104,22 +108,6 @@ class Image(object):
         self.width = int(attrib['width'])
         self.height = int(attrib['height'])
 
-    def getAlternates(self):
-        alternates = [self]
-        if 'class' in self.child.attrib:
-            classes = self.child.attrib['class'].split()
-            del self.child.attrib['class']
-            print "Classes", classes
-            for classname in classes:
-                alternate = copy.deepcopy(self)
-                alternate.child.attrib['class'] = classname
-                alternate.child.attrib['id'] += '-' + classname
-                alternate.name += '-' + classname
-                alternate.hasClass = True
-                alternates.append(alternate)
-
-        return alternates
-
 
 class Spritesheet(object):
     def __init__(self, name, images=None):
@@ -141,50 +129,69 @@ class Spritesheet(object):
         data = open(style).read()
         return etree.CDATA('\n' + data + '\n')
 
-    def loadDef(self, use):
-        filename, xmlId = use
+    def loadDef(self, filename):
         tree = etree.parse(filename)
-        defs = tree.find('*[@id="' + xmlId + '"]')
-        return defs.getchildren()
+        defs = tree.getroot().getchildren()
+        return defs
 
-    def getVariant(self, variant):
+    def getAlternates(self, image):
+        alternates = [image]
+        seenClasses = set()
+        for use in image.uses:
+            for element in self.usemap[use]:
+                if element.tag == EXTRA_CLASSES:
+                    classes = element.attrib['value'].split()
+                    for classname in classes:
+                        if classname not in seenClasses:
+                            seenClasses.add(classname)
+                            alternate = copy.deepcopy(image)
+                            alternate.child.attrib['class'] = classname
+                            alternate.child.attrib['id'] += '-' + classname
+                            alternate.name += '-' + classname
+                            alternate.hasClass = True
+                            alternates.append(alternate)
+
+        return alternates
+
+    def getVariants(self, variant):
         new = Spritesheet(self.name)
-        for image in self.images:
-            newImage = Image(image, variant.getFile(image))
-            new.images.extend(newImage.getAlternates())
-
         styles = set()
         uses = set()
-        for image in new.images:
-            styles.update(image.styles)
-            uses.update(image.uses)
-            print image.name, image.width, image.height
+        for image in self.images:
+            newImage = Image(image, variant.getFile(image))
+            styles.update(newImage.styles)
+            uses.update(newImage.uses)
+            print newImage.name, newImage.width, newImage.height
 
         styles = [variant.getFile(sheet) for sheet in sorted(styles)]
         new.styles = [self.loadStyle(style) for style in styles]
 
-        uses = [variant.getDefsFile(use) for use in sorted(uses)]
-        new.uses = [self.loadDef(use) for use in uses]
+        new.usemap = {use: self.loadDef(variant.getDefsFile(use))
+                      for use in uses}
+        new.uses = [new.usemap[use] for use in sorted(uses)]
 
-        return new
+        for image in self.images:
+            newImage = Image(image, variant.getFile(image))
+            new.images.extend(new.getAlternates(newImage))
+        variants = [new]
+
+        return variants
 
     def write(self, output):
         tree = etree.parse(SPRITESHEET_SVG)
         root = tree.getroot()
-        root.text = '\n  '
+        root.text = '\n\n  '
 
         for style in self.styles:
             styleElem = etree.Element('style')
             styleElem.text = style
-            styleElem.tail = '\n  '
+            styleElem.tail = '\n\n  '
             root.append(styleElem)
 
-        defs = etree.Element('defs')
-        defs.text = '\n    '
         for use in self.uses:
-            defs.extend(use)
-        defs.tail = '\n  '
-        root.append(defs)
+            use = [element for element in use if element.tag not in EXTRA_TAGS]
+            use[-1].tail = '\n\n  '
+            root.extend(use)
 
         height = 0
         width = 0
@@ -252,19 +259,18 @@ class Variant(object):
         return os.path.join(self.baseDir, filename)
 
     def getDefsFile(self, filename):
-        filePath, xmlId = filename.split('#')
-        filePath = self.getFile(filePath)
-        print filePath, xmlId
-        return (filePath, xmlId)
+        filePath = self.getFile(filename)
+        return filePath
 
     def make(self, spritesheets):
         print
         print 'Making', self
         # Get images in spritesheet for variant…
         for spritesheet in spritesheets:
-            sheet = spritesheet.getVariant(self)
-            print '  ->', sheet, sheet.images, sheet.styles, sheet.uses
-            sheet.write(self.output)
+            sheets = spritesheet.getVariants(self)
+            for sheet in sheets:
+                print '  ->', sheet, sheet.images, sheet.styles, sheet.uses
+                sheet.write(self.output)
 
 
 def getVariants(args):

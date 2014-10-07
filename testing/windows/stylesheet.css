@@ -20,7 +20,7 @@
   stroke-opacity: .2;
 }
 
-@media (min-resolution: 2dppx) {
+@media (-moz-windows-theme: luna-silver) {
   .icon-toolbar {
     fill: red;
   }

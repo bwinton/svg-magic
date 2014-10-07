@@ -1,23 +1,16 @@
 .icon-toolbar {
-  fill: ButtonText;
+  fill: #808080;
   fill-opacity: .9;
   filter: url('#filter-effects-toolbar');
-}
-
-.active .icon-toolbar {
-  fill: #ff0000;
-  stroke: #00ff00;
-}
-
-.hover .icon-toolbar {
-  fill: #00ff00;
-  stroke: #0000ff;
-}
-
+ }
 
 .icon-toolbar.notification {
   fill: #0080ff;
   fill-opacity: 1;
+ }
+
+ .active .icon-toolbar {
+   fill: ButtonText;
  }
 
 .icon-placeholder-background {
@@ -29,10 +22,4 @@
   stroke: #002132;
   stoke-width: 1;
   stroke-opacity: .2;
-}
-
-@media (min-resolution: 2dppx) {
-  .icon-toolbar {
-    fill: red;
-  }
 }
