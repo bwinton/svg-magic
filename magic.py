@@ -3,15 +3,15 @@
 
 import argparse
 from clint.textui.colored import red, green, blue
-
-from time import sleep
 from clint.textui import progress
 import copy
 import csv
 import io
-import os
-import sys
 from lxml import etree
+import os
+import subprocess
+import sys
+from time import sleep
 
 
 SPRITESHEET_SVG = io.BytesIO('''<?xml version="1.0" encoding="utf-8"?>
@@ -208,7 +208,11 @@ class Spritesheet(object):
 
         return variants
 
-    def write(self, output):
+    def write(self, output, png):
+        imageExt = 'svg'
+        if png:
+            imageExt = 'png'
+
         tree = etree.parse(SPRITESHEET_SVG)
         root = tree.getroot()
         root.text = '\n\n  '
@@ -228,8 +232,8 @@ class Spritesheet(object):
         height = 0
         width = 0
         for image in self.images:
-            image.child.attrib['style'] = 'transform:translate(%dpx)' % (
-                width,)
+            image.child.attrib['style'] = ('transform:translate(%dpx)'
+                                           ) % (width,)
             root.append(image.child)
             image.child.tail = '\n  '
             image.offset = width
@@ -265,11 +269,12 @@ class Spritesheet(object):
                     data += '\n'
                     data += '%%define %s-sprite ' % (image.name,)
                     data += 'list-style-image: url("chrome:'
-                    data += '//browser/skin/%s.svg");\n' % (self.name,)
+                    data += '//browser/skin/%s.%s");\n' % (self.name, imageExt)
                     for theme in self.themes:
                         data += '%%define %s-%s-sprite ' % (image.name, theme)
                         data += 'list-style-image: url("chrome://browser'
-                        data += '/skin/%s-%s.svg");\n' % (self.name, theme)
+                        data += '/skin/%s-%s.%s");\n' % (self.name, theme,
+                                                         imageExt)
                 data += '%%define %s-image ' % (image.name,)
                 data += '-moz-image-region: rect(0px, '
                 data += '%dpx, %dpx, %dpx);\n' % (image.offset+image.width,
@@ -277,13 +282,16 @@ class Spritesheet(object):
             data = data[1:]
             css.write(data)
             css.close()
+        return self.name + '.svg'
 
 
 class Variant(object):
     def __init__(self, variantDir, args):
         self.variantDir = variantDir
         self.baseDir = args.baseDir
+        self.png = args.png
         self.output = os.path.join(args.output, self.variantDir)
+        self.svgs = []
 
     def __str__(self):
         return 'Variant<' + self.variantDir + '>'
@@ -310,7 +318,9 @@ class Variant(object):
         for spritesheet in spritesheets:
             sheets = spritesheet.getVariants(self)
             for sheet in sheets:
-                sheet.write(self.output)
+                self.svgs.append(os.path.join(self.variantDir,
+                                              sheet.write(self.output,
+                                                          self.png)))
 
 
 def getVariants(args):
@@ -321,6 +331,41 @@ def getVariants(args):
                     (blue(args.baseDir, bold=True),),
                     (args.baseDir,))
     return variants
+
+
+def makePngs(output, variants):
+    print
+    print "Writing pngs to " + output + "/"
+    htmlPath = os.path.join(output, 'svgs.html')
+    html = open(htmlPath, 'w')
+    html.write("""<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<title>Testing</title>
+<style>
+* {
+  padding: 0;
+  margin: 0;
+}
+</style>
+</head>
+<body>
+
+""")
+    for variant in variants:
+        for svg in variant.svgs:
+            html.write('<img src="' + svg + '">\n')
+    html.write("""
+</body>
+</html>""")
+    html.close()
+    subprocess.call([
+        'node_modules/.bin/slimerjs',
+        'converter.js',
+        os.path.abspath(htmlPath),
+        os.path.abspath(output),
+        '1'])
+    os.remove(htmlPath)
 
 
 def main(argv=None):
@@ -338,11 +383,17 @@ def main(argv=None):
             '-o', '--output',
             default='output',
             help='The directory to store the output in.')
+        parser.add_argument(
+            '-p', '--png',
+            action="store_true",
+            help='Generate PNG files.')
         args = parser.parse_args(argv[1:])
         spritesheets = processManifest(args)
         variants = getVariants(args)
         for variant in variants:
             variant.make(spritesheets)
+        if args.png:
+            makePngs(args.output, variants)
     except Usage, err:
         print >>sys.stderr
         print >>sys.stderr, red('Error:', bold=True)
