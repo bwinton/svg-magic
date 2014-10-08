@@ -5,5 +5,6 @@
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 
   <extra-classes value="hover embossed"/>
-  <extra-themes value="luna-blue luna-olive luna-silver"/>
+  <extra-theme name="luna-blue" href="luna-blue.css"/>
+  <extra-theme name="luna-silver" href="luna-silver.css"/>
 </svg>

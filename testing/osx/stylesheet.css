@@ -7,11 +7,11 @@
 .icon-toolbar.notification {
   fill: #0080ff;
   fill-opacity: 1;
- }
+}
 
- .active .icon-toolbar {
-   fill: ButtonText;
- }
+.active .icon-toolbar {
+  fill: ButtonText;
+}
 
 .icon-placeholder-background {
   fill: url('#gradient-radial-placeholder');

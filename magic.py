@@ -25,8 +25,8 @@ SPRITESHEET_SVG = io.BytesIO('''<?xml version="1.0" encoding="utf-8"?>
 </svg>''')
 
 EXTRA_CLASSES = '{http://www.w3.org/2000/svg}extra-classes'
-EXTRA_THEMES = '{http://www.w3.org/2000/svg}extra-themes'
-EXTRA_TAGS = [EXTRA_CLASSES, EXTRA_THEMES]
+EXTRA_THEME = '{http://www.w3.org/2000/svg}extra-theme'
+EXTRA_TAGS = [EXTRA_CLASSES, EXTRA_THEME]
 
 
 class Usage(Exception):
@@ -165,13 +165,12 @@ class Spritesheet(object):
         return styles
 
     def getThemes(self, uses):
-        themes = []
+        themes = {}
         for use in uses:
             for element in use:
-                if (element.tag == EXTRA_THEMES):
-                    for theme in element.attrib['value'].split():
-                        if theme not in themes:
-                            themes.append(theme)
+                if (element.tag == EXTRA_THEME):
+                    # <extra-theme name="luna-blue" href="luna-blue.css"/>
+                    themes[element.attrib['name']] = element.attrib['href']
         return themes
 
     def getVariants(self, variant):
@@ -198,10 +197,13 @@ class Spritesheet(object):
         variants = [new]
 
         new.themes = self.getThemes(new.uses)
-        for theme in new.themes:
+        for theme, style in new.themes.items():
             alternate = copy.copy(new)
             alternate.name += '-' + theme
             alternate.isTheme = True
+            alternate.styles = copy.copy(new.styles)
+            style = variant.getDefsFile(style)
+            alternate.styles.append(alternate.loadStyle(style))
             variants.append(alternate)
 
         return variants
@@ -293,7 +295,10 @@ class Variant(object):
         filePath = os.path.join(self.baseDir, self.variantDir, filename)
         if os.path.exists(filePath):
             return filePath
-        return os.path.join(self.baseDir, filename)
+        baseFilePath = os.path.join(self.baseDir, filename)
+        if not os.path.exists(baseFilePath):
+            return filePath
+        return baseFilePath
 
     def getDefsFile(self, filename):
         filePath = self.getFile(filename)
