@@ -105,9 +105,14 @@ class Spritesheet(object):
         if images is None:
             images = []
         self.images = images
+        self.isTheme = False
 
     def __str__(self):
-        return 'Spritesheet<' + self.name + '>'
+        rv = 'Spritesheet<' + self.name
+        if self.isTheme:
+            rv += ':theme'
+        rv += '>'
+        return rv
 
     def __repr__(self):
         return self.__str__()
@@ -159,6 +164,16 @@ class Spritesheet(object):
                 pi = pi.getprevious()
         return styles
 
+    def getThemes(self, uses):
+        themes = []
+        for use in uses:
+            for element in use:
+                if (element.tag == EXTRA_THEMES):
+                    for theme in element.attrib['value'].split():
+                        if theme not in themes:
+                            themes.append(theme)
+        return themes
+
     def getVariants(self, variant):
         new = Spritesheet(self.name)
         styles = set()
@@ -182,7 +197,12 @@ class Spritesheet(object):
             new.images.extend(new.getAlternates(newImage))
         variants = [new]
 
-        # use = [element for element in use if element.tag not in EXTRA_TAGS]
+        new.themes = self.getThemes(new.uses)
+        for theme in new.themes:
+            alternate = copy.copy(new)
+            alternate.name += '-' + theme
+            alternate.isTheme = True
+            variants.append(alternate)
 
         return variants
 
@@ -232,22 +252,29 @@ class Spritesheet(object):
         svg.write(data)
         svg.close()
 
-        # Write out the CSS!
-        cssPath = os.path.join(output, self.name + 'Sprites.inc')
-        print 'Writing:', cssPath
-        css = open(cssPath, 'w')
-        data = ''
-        for image in self.images:
-            data += '%%define %s-image ' % (image.name,)
-            if not image.hasClass:
-                data += 'list-style-image: url('
-                data += '"chrome://browser/skin/%s.svg");' % (self.name,)
-            data += '-moz-image-region: rect(0px, '
-            data += '%dpx, %dpx, %dpx);\n' % (image.offset+image.width,
-                                              image.height, image.offset)
-            data += '\n'
-        css.write(data)
-        css.close()
+        if not self.isTheme:
+            # Write out the CSS!
+            cssPath = os.path.join(output, self.name + 'Sprites.inc')
+            print 'Writing:', cssPath
+            css = open(cssPath, 'w')
+            data = ''
+            for image in self.images:
+                if not image.hasClass:
+                    data += '\n'
+                    data += '%%define %s-sprite ' % (image.name,)
+                    data += 'list-style-image: url("chrome:'
+                    data += '//browser/skin/%s.svg");\n' % (self.name,)
+                    for theme in self.themes:
+                        data += '%%define %s-%s-sprite ' % (image.name, theme)
+                        data += 'list-style-image: url("chrome://browser'
+                        data += '/skin/%s-%s.svg");\n' % (self.name, theme)
+                data += '%%define %s-image ' % (image.name,)
+                data += '-moz-image-region: rect(0px, '
+                data += '%dpx, %dpx, %dpx);\n' % (image.offset+image.width,
+                                                  image.height, image.offset)
+            data = data[1:]
+            css.write(data)
+            css.close()
 
 
 class Variant(object):
@@ -274,12 +301,10 @@ class Variant(object):
 
     def make(self, spritesheets):
         print
-        print 'Making', self
         # Get images in spritesheet for variant…
         for spritesheet in spritesheets:
             sheets = spritesheet.getVariants(self)
             for sheet in sheets:
-                print '  ->', sheet, sheet.images, sheet.styles, sheet.uses
                 sheet.write(self.output)
 
 
@@ -309,9 +334,7 @@ def main(argv=None):
             default='output',
             help='The directory to store the output in.')
         args = parser.parse_args(argv[1:])
-        print args
         spritesheets = processManifest(args)
-        print 'Spritesheets: ' + str(spritesheets)
         variants = getVariants(args)
         for variant in variants:
             variant.make(spritesheets)
