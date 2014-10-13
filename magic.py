@@ -288,10 +288,19 @@ class Spritesheet(object):
                         data += 'list-style-image: url("chrome://browser'
                         data += '/skin/%s-%s.%s");\n' % (self.name, theme,
                                                          imageExt)
-                data += '%%define %s-image ' % (image.name,)
-                data += '-moz-image-region: rect(0px, '
-                data += '%dpx, %dpx, %dpx);\n' % (image.offset+image.width,
-                                                  image.height, image.offset)
+                for suffix in self.scales:
+                    scale = float(self.scales[suffix])
+                    if suffix:
+                        suffix = '-' + suffix
+
+                    top = 0
+                    right = (image.offset + image.width) * scale
+                    bottom = image.height * scale
+                    left = image.offset * scale
+
+                    data += '%%define %s-image%s ' % (image.name, suffix)
+                    data += '-moz-image-region: rect'
+                    data += '(%dpx, %dpx, %dpx, %dpx);\n' % (top, right, bottom, left)
             data = data[1:]
             css.write(data)
             css.close()
