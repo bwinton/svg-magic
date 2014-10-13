@@ -26,7 +26,8 @@ SPRITESHEET_SVG = io.BytesIO('''<?xml version="1.0" encoding="utf-8"?>
 
 EXTRA_CLASSES = '{http://www.w3.org/2000/svg}extra-classes'
 EXTRA_THEME = '{http://www.w3.org/2000/svg}extra-theme'
-EXTRA_TAGS = [EXTRA_CLASSES, EXTRA_THEME]
+EXTRA_SCALE = '{http://www.w3.org/2000/svg}extra-scale'
+EXTRA_TAGS = [EXTRA_CLASSES, EXTRA_THEME, EXTRA_SCALE]
 
 
 class Usage(Exception):
@@ -173,6 +174,15 @@ class Spritesheet(object):
                     themes[element.attrib['name']] = element.attrib['href']
         return themes
 
+    def getScales(self, uses):
+        scales = {'': '1'}
+        for use in uses:
+            for element in use:
+                if (element.tag == EXTRA_SCALE):
+                    # <extra-scale name="Retina" value="2"/>
+                    scales[element.attrib['name']] = element.attrib['value']
+        return scales
+
     def getVariants(self, variant):
         new = Spritesheet(self.name)
         styles = set()
@@ -196,11 +206,14 @@ class Spritesheet(object):
             new.images.extend(new.getAlternates(newImage))
         variants = [new]
 
+        new.scales = self.getScales(new.uses)
+
         new.themes = self.getThemes(new.uses)
         for theme, style in new.themes.items():
             alternate = copy.copy(new)
             alternate.name += '-' + theme
             alternate.isTheme = True
+            alternate.scales = copy.copy(new.scales)
             alternate.styles = copy.copy(new.styles)
             style = variant.getDefsFile(style)
             alternate.styles.append(alternate.loadStyle(style))
@@ -292,6 +305,7 @@ class Variant(object):
         self.png = args.png
         self.output = os.path.join(args.output, self.variantDir)
         self.svgs = []
+        self.scales = {}
 
     def __str__(self):
         return 'Variant<' + self.variantDir + '>'
@@ -321,6 +335,8 @@ class Variant(object):
                 self.svgs.append(os.path.join(self.variantDir,
                                               sheet.write(self.output,
                                                           self.png)))
+                for scale in sheet.scales:
+                    self.scales[scale] = sheet.scales[scale]
 
 
 def getVariants(args):
@@ -333,9 +349,9 @@ def getVariants(args):
     return variants
 
 
-def makePngs(output, variants):
+def makePngs(output, variants, suffix, scale):
     print
-    print "Writing pngs to " + output + "/"
+    print "Writing " + (suffix or 'default') + " pngs to " + output + "/ at " + scale + "x"
     htmlPath = os.path.join(output, 'svgs.html')
     html = open(htmlPath, 'w')
     html.write("""<!doctype html>
@@ -359,12 +375,14 @@ def makePngs(output, variants):
 </body>
 </html>""")
     html.close()
+
     subprocess.call([
         'node_modules/.bin/slimerjs',
         'converter.js',
         os.path.abspath(htmlPath),
         os.path.abspath(output),
-        '1'])
+        suffix,
+        scale])
     os.remove(htmlPath)
 
 
@@ -393,7 +411,13 @@ def main(argv=None):
         for variant in variants:
             variant.make(spritesheets)
         if args.png:
-            makePngs(args.output, variants)
+            scales = {}
+            for variant in variants:
+                for scale in variant.scales:
+                    scales[scale] = variant.scales[scale]
+            for scale in scales:
+                pngs = filter(lambda variant: scale in variant.scales, variants)
+                makePngs(args.output, pngs, scale, scales[scale])
     except Usage, err:
         print >>sys.stderr
         print >>sys.stderr, red('Error:', bold=True)
